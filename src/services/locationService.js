@@ -31,8 +31,12 @@ export const LOCATION_ERROR = {
  * Above this reported accuracy radius (metres), a result is treated as
  * "low accuracy" rather than a usable location — the UI will ask the
  * visitor to try again instead of presenting it as their location.
+ *
+ * Kept equal to TARGET_ACCURACY_METERS so a location is only ever shown
+ * once it genuinely meets the ±5 m target — never a looser real reading
+ * relabeled as if it were ±5 m.
  */
-export const LOW_ACCURACY_THRESHOLD_METERS = 100;
+export const LOW_ACCURACY_THRESHOLD_METERS = 5;
 
 /**
  * A reading at or below this reported accuracy (metres) is considered
