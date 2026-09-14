@@ -27,7 +27,14 @@ function Spinner() {
   );
 }
 
-export default function LocationStatus({ status, data, errorCode, onRetry, onRefresh }) {
+export default function LocationStatus({
+  status,
+  data,
+  bestSoFar,
+  errorCode,
+  onRetry,
+  onRefresh,
+}) {
   if (status === "idle") {
     return (
       <p className="location-status location-status--muted">
@@ -39,12 +46,23 @@ export default function LocationStatus({ status, data, errorCode, onRetry, onRef
   if (status === "requesting") {
     return (
       <p className="location-status location-status--pending" role="status">
-        <Spinner /> Requesting your location...
+        <Spinner /> Improving location accuracy...
+        {bestSoFar && typeof bestSoFar.accuracy === "number" && (
+          <span className="location-status__best">
+            {" "}
+            Best accuracy so far: {formatAccuracy(bestSoFar.accuracy)}
+          </span>
+        )}
         <style>{`
           .location-status--pending {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             gap: 8px;
+          }
+          .location-status__best {
+            color: var(--color-ink-soft);
+            font-size: 0.85rem;
           }
         `}</style>
       </p>
@@ -56,8 +74,9 @@ export default function LocationStatus({ status, data, errorCode, onRetry, onRef
       <div className="location-status location-status--caution" role="alert">
         <p className="location-status__headline">Low Location Accuracy</p>
         <p className="location-status__text">
-          Your device could not determine your location accurately enough
-          (accuracy {formatAccuracy(data.accuracy)}).
+          Location accuracy is currently low. Try moving outdoors or
+          enabling your phone's high-accuracy location mode. (Reported
+          accuracy: {formatAccuracy(data.accuracy)}.)
         </p>
         <ul className="location-status__tips">
           <li>Enable GPS / precise location for this browser</li>
@@ -105,7 +124,7 @@ export default function LocationStatus({ status, data, errorCode, onRetry, onRef
   if (status === "granted" && data) {
     return (
       <div className="location-status location-status--granted" role="status">
-        <p className="location-status__headline">✓ Location found</p>
+        <p className="location-status__headline">✓ Location access granted</p>
         <dl className="location-status__grid">
           <dt>Latitude</dt>
           <dd>{formatCoordinate(data.latitude)}</dd>
@@ -116,7 +135,7 @@ export default function LocationStatus({ status, data, errorCode, onRetry, onRef
           <dt>Accuracy</dt>
           <dd>{formatAccuracy(data.accuracy)}</dd>
 
-          <dt>Retrieved</dt>
+          <dt>Time received</dt>
           <dd>{formatTimestamp(data.timestamp)}</dd>
         </dl>
 

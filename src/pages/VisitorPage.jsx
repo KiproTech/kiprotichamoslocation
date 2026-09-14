@@ -20,14 +20,18 @@ import { getSessionId } from "../services/sessionService.js";
 export default function VisitorPage() {
   const [status, setStatus] = useState("idle");
   const [visitorData, setVisitorData] = useState(null);
+  const [bestSoFar, setBestSoFar] = useState(null);
   const [errorCode, setErrorCode] = useState(null);
 
   async function requestLocation() {
     setStatus("requesting");
     setErrorCode(null);
+    setBestSoFar(null);
 
     try {
-      const location = await getCurrentLocation();
+      const location = await getCurrentLocation({
+        onProgress: (reading) => setBestSoFar(reading),
+      });
       const device = getDeviceInfo();
 
       // Combined object for this visit, kept in memory only. Nothing
@@ -85,6 +89,7 @@ export default function VisitorPage() {
               <LocationStatus
                 status={status}
                 data={visitorData?.location ?? null}
+                bestSoFar={bestSoFar}
                 errorCode={errorCode}
                 onRetry={
                   status === "error" || status === "low-accuracy" ? handleRetry : null

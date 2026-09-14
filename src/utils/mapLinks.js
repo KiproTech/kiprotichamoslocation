@@ -38,24 +38,29 @@ export function toMapViewParams(location) {
 }
 
 /**
- * Builds a "latitude,longitude" destination string, the format a maps/
- * navigation service expects for a directions destination.
+ * Builds a Google Maps "search this point" URL from raw latitude/
+ * longitude values, in the exact form https://www.google.com/maps?q=LAT,LNG.
+ * This is the simplest, most widely compatible Google Maps link — it
+ * works the same on Android, iOS, and desktop browsers (Android/iOS will
+ * generally offer to open it in the native Google Maps app).
+ *
+ * Safely returns null if latitude/longitude aren't valid finite numbers,
+ * so callers never construct a URL from missing or malformed data.
  */
-export function toDestinationString(location) {
-  if (!location) return null;
-  const { latitude, longitude } = location;
-  return `${latitude},${longitude}`;
+export function getGoogleMapsLink(latitude, longitude) {
+  if (typeof latitude !== "number" || typeof longitude !== "number") return null;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  return `https://www.google.com/maps?q=${latitude},${longitude}`;
 }
 
 /**
- * Builds a Google Maps directions URL to the visitor's own location.
- * Used by the "Open My Location in Maps" button so the visitor can view
- * or navigate to where they currently are, in a new tab.
+ * Convenience wrapper around getGoogleMapsLink for a location object
+ * shaped like { latitude, longitude, ... } (the shape returned by
+ * locationService.getCurrentLocation()).
  */
 export function buildNavigationUrl(location) {
-  const destination = toDestinationString(location);
-  if (!destination) return null;
-  return `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+  if (!location) return null;
+  return getGoogleMapsLink(location.latitude, location.longitude);
 }
 
 /**
