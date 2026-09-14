@@ -1,4 +1,4 @@
-import { LOCATION_ERROR } from "../services/locationService.js";
+import { LOCATION_ERROR, isLowAccuracy } from "../services/locationService.js";
 import { getFriendlyLocationMessage } from "../utils/locationMessages.js";
 import { formatCoordinate, formatAccuracy, formatTimestamp } from "../utils/formatLocation.js";
 import LocationMap from "./LocationMap.jsx";
@@ -44,14 +44,20 @@ export default function LocationStatus({
   }
 
   if (status === "requesting") {
+    const hasReading = bestSoFar && typeof bestSoFar.accuracy === "number";
     return (
       <p className="location-status location-status--pending" role="status">
-        <Spinner /> Improving location accuracy...
-        {bestSoFar && typeof bestSoFar.accuracy === "number" && (
-          <span className="location-status__best">
-            {" "}
-            Best accuracy so far: {formatAccuracy(bestSoFar.accuracy)}
-          </span>
+        <Spinner />{" "}
+        {hasReading ? (
+          <>
+            Improving location accuracy...
+            <span className="location-status__best">
+              {" "}
+              Best accuracy: {formatAccuracy(bestSoFar.accuracy)}
+            </span>
+          </>
+        ) : (
+          "Getting your location..."
         )}
         <style>{`
           .location-status--pending {
@@ -69,62 +75,11 @@ export default function LocationStatus({
     );
   }
 
-  if (status === "low-accuracy" && data) {
-    return (
-      <div className="location-status location-status--caution" role="alert">
-        <p className="location-status__headline">Low Location Accuracy</p>
-        <p className="location-status__text">
-          Location accuracy is currently low. Try moving outdoors or
-          enabling your phone's high-accuracy location mode. (Reported
-          accuracy: {formatAccuracy(data.accuracy)}.)
-        </p>
-        <ul className="location-status__tips">
-          <li>Enable GPS / precise location for this browser</li>
-          <li>Move near a window or outdoors if possible</li>
-          <li>Try again</li>
-        </ul>
-        {onRetry && (
-          <button type="button" className="btn btn--secondary" onClick={onRetry}>
-            Try Again
-          </button>
-        )}
-
-        <style>{`
-          .location-status--caution {
-            background: var(--color-caution-bg);
-            border: 1px solid var(--color-caution-border);
-            border-radius: var(--radius-md);
-            padding: 14px 16px;
-          }
-          .location-status--caution .location-status__headline {
-            margin: 0 0 6px;
-            font-weight: 600;
-            color: var(--color-caution);
-            font-size: 0.92rem;
-          }
-          .location-status--caution .location-status__text {
-            margin: 0 0 10px;
-            font-size: 0.88rem;
-            color: var(--color-ink-soft);
-          }
-          .location-status__tips {
-            margin: 0 0 14px;
-            padding-left: 18px;
-            font-size: 0.86rem;
-            color: var(--color-ink-soft);
-          }
-          .location-status__tips li {
-            margin-bottom: 4px;
-          }
-        `}</style>
-      </div>
-    );
-  }
-
   if (status === "granted" && data) {
+    const lowAccuracy = isLowAccuracy(data);
     return (
       <div className="location-status location-status--granted" role="status">
-        <p className="location-status__headline">✓ Location access granted</p>
+        <p className="location-status__headline">✓ Location obtained</p>
         <dl className="location-status__grid">
           <dt>Latitude</dt>
           <dd>{formatCoordinate(data.latitude)}</dd>
@@ -132,12 +87,20 @@ export default function LocationStatus({
           <dt>Longitude</dt>
           <dd>{formatCoordinate(data.longitude)}</dd>
 
-          <dt>Accuracy</dt>
+          <dt>Best accuracy</dt>
           <dd>{formatAccuracy(data.accuracy)}</dd>
 
           <dt>Time received</dt>
           <dd>{formatTimestamp(data.timestamp)}</dd>
         </dl>
+
+        {lowAccuracy && (
+          <p className="location-status__warning" role="alert">
+            Location accuracy is currently low. For better accuracy, try
+            moving outdoors and ensure your phone's high-accuracy location
+            setting is enabled.
+          </p>
+        )}
 
         <div className="location-status__map">
           <LocationMap location={data} />
@@ -186,6 +149,15 @@ export default function LocationStatus({
             margin: 0;
             color: var(--color-ink);
             font-variant-numeric: tabular-nums;
+          }
+          .location-status__warning {
+            margin: 10px 0 0;
+            padding: 10px 12px;
+            background: var(--color-caution-bg);
+            border: 1px solid var(--color-caution-border);
+            border-radius: var(--radius-sm, 6px);
+            color: var(--color-caution);
+            font-size: 0.85rem;
           }
           .location-status__map {
             margin-top: 14px;

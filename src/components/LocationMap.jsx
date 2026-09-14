@@ -32,7 +32,7 @@ export default function LocationMap({ location }) {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Open in Map
+          Open in Google Maps
         </a>
       )}
 

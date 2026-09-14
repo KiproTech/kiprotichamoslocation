@@ -1,54 +1,75 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Header from "../components/Header.jsx";
 import ConsentCard from "../components/ConsentCard.jsx";
 import LocationStatus from "../components/LocationStatus.jsx";
 import DeviceInfo from "../components/DeviceInfo.jsx";
-import {
-  getCurrentLocation,
-  LOCATION_ERROR,
-  isLowAccuracy,
-} from "../services/locationService.js";
+import { getCurrentLocation, LOCATION_ERROR } from "../services/locationService.js";
 import { getDeviceInfo } from "../services/deviceInfo.js";
 import { getSessionId } from "../services/sessionService.js";
 
-// status: "idle" | "cancelled" | "requesting" | "granted" | "low-accuracy" | "error"
+// status: "idle" | "cancelled" | "requesting" | "granted" | "error"
 //
 // Everything on this page lives in React state only, for the current
 // browser tab. Nothing is sent to a server, saved to storage, or shared
 // with anyone else — the visitor is the only person who ever sees this
-// data.
+// data. A location's real accuracy is always shown as reported; a low
+// value just adds an inline advisory (see LocationStatus) instead of
+// hiding the result.
 export default function VisitorPage() {
   const [status, setStatus] = useState("idle");
   const [visitorData, setVisitorData] = useState(null);
   const [bestSoFar, setBestSoFar] = useState(null);
   const [errorCode, setErrorCode] = useState(null);
 
-  async function requestLocation() {
+  // Holds the cancel() for whichever location request is currently in
+  // flight, so we can stop watchPosition early on unmount, when consent
+  // is withdrawn, or when a new request supersedes an old one.
+  const cancelActiveRequestRef = useRef(null);
+
+  useEffect(() => {
+    // Component unmount: make sure any in-progress watchPosition is torn
+    // down rather than left running in the background.
+    return () => {
+      cancelActiveRequestRef.current?.();
+      cancelActiveRequestRef.current = null;
+    };
+  }, []);
+
+  function requestLocation() {
+    // Stop any previous in-flight watch before starting a new one.
+    cancelActiveRequestRef.current?.();
+
     setStatus("requesting");
     setErrorCode(null);
     setBestSoFar(null);
 
-    try {
-      const location = await getCurrentLocation({
-        onProgress: (reading) => setBestSoFar(reading),
+    const { promise, cancel } = getCurrentLocation({
+      onProgress: (reading) => setBestSoFar(reading),
+    });
+    cancelActiveRequestRef.current = cancel;
+
+    promise
+      .then((location) => {
+        cancelActiveRequestRef.current = null;
+        const device = getDeviceInfo();
+
+        // Combined object for this visit, kept in memory only. Nothing
+        // here is sent to a server, saved to Supabase, or shared with
+        // anyone — it exists only to render on this screen.
+        const combined = {
+          sessionId: getSessionId(),
+          location,
+          device,
+        };
+
+        setVisitorData(combined);
+        setStatus("granted");
+      })
+      .catch((error) => {
+        cancelActiveRequestRef.current = null;
+        setErrorCode(error.code || LOCATION_ERROR.UNKNOWN);
+        setStatus("error");
       });
-      const device = getDeviceInfo();
-
-      // Combined object for this visit, kept in memory only. Nothing
-      // here is sent to a server, saved to Supabase, or shared with
-      // anyone — it exists only to render on this screen.
-      const combined = {
-        sessionId: getSessionId(),
-        location,
-        device,
-      };
-
-      setVisitorData(combined);
-      setStatus(isLowAccuracy(location) ? "low-accuracy" : "granted");
-    } catch (error) {
-      setErrorCode(error.code || LOCATION_ERROR.UNKNOWN);
-      setStatus("error");
-    }
   }
 
   function handleAllow() {
@@ -56,6 +77,8 @@ export default function VisitorPage() {
   }
 
   function handleCancel() {
+    cancelActiveRequestRef.current?.();
+    cancelActiveRequestRef.current = null;
     setStatus("cancelled");
     setVisitorData(null);
     setErrorCode(null);
@@ -91,9 +114,7 @@ export default function VisitorPage() {
                 data={visitorData?.location ?? null}
                 bestSoFar={bestSoFar}
                 errorCode={errorCode}
-                onRetry={
-                  status === "error" || status === "low-accuracy" ? handleRetry : null
-                }
+                onRetry={status === "error" ? handleRetry : null}
                 onRefresh={status === "granted" ? handleRefresh : null}
               />
             )}
